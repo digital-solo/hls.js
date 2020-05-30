@@ -39,6 +39,31 @@ describe('Fragment finders', function () {
       expect(binarySearchSpy).to.have.not.been.called;
     });
 
+    it('chooses the fragment with the next SN if its contiguous with the end of previous fragment', function () {
+      // See https://github.com/video-dev/hls.js/issues/2776
+      const bufferEnd = 60.139636;
+      const fragments = [{
+        deltaPTS: 0.012346258503441732,
+        cc: 2,
+        duration: 5.017346258503444,
+        start: 55.21705215419478,
+        sn: 11,
+        level: 0
+      },
+      {
+        deltaPTS: 0,
+        cc: 2,
+        duration: 0.033,
+        start: 60.234398412698226,
+        sn: 12,
+        level: 0
+      }];
+      const fragPrevious = fragments[0];
+      const actual = findFragmentByPTS(fragPrevious, fragments, bufferEnd, tolerance);
+      expect(actual).to.equal(fragments[1], `expected sn ${fragments[1].sn}, but got sn ${actual ? actual.sn : null}`);
+      expect(binarySearchSpy).to.have.not.been.called;
+    });
+
     it('uses BinarySearch to find a fragment if the subsequent one is not within tolerance', function () {
       const fragments = [mockFragments[0], mockFragments[(mockFragments.length - 1)]];
       findFragmentByPTS(fragments[0], fragments, bufferEnd, tolerance);
@@ -91,6 +116,16 @@ describe('Fragment finders', function () {
         deltaPTS: 0.1
       };
       const actual = fragmentWithinToleranceTest(0, tolerance, frag);
+      expect(actual).to.equal(0);
+    });
+
+    it('does not skip tiny fragments that start at buffer end', function () {
+      const frag = {
+        start: 0.2,
+        duration: 0.033,
+        deltaPTS: 0
+      };
+      const actual = fragmentWithinToleranceTest(0.2, tolerance, frag);
       expect(actual).to.equal(0);
     });
   });

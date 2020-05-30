@@ -46,10 +46,19 @@ export function findFragmentByPDT (fragments: Array<Fragment>, PDTValue: number 
  * @returns {*} foundFrag - The best matching fragment
  */
 export function findFragmentByPTS (fragPrevious: Fragment, fragments: Array<Fragment>, bufferEnd: number = 0, maxFragLookUpTolerance: number = 0): Fragment | null {
-  const fragNext = fragPrevious ? fragments[fragPrevious.sn as number - (fragments[0].sn as number) + 1] : null;
+  let fragNext: Fragment | null = null;
+  if (fragPrevious) {
+    fragNext = fragments[fragPrevious.sn as number - (fragments[0].sn as number) + 1];
+  } else if (bufferEnd === 0 && fragments[0].start === 0) {
+    fragNext = fragments[0];
+  }
   // Prefer the next fragment if it's within tolerance
-  if (fragNext && !fragmentWithinToleranceTest(bufferEnd, maxFragLookUpTolerance, fragNext)) {
-    return fragNext;
+  if (fragNext) {
+    if (fragmentWithinToleranceTest(bufferEnd, maxFragLookUpTolerance, fragNext) === 0) {
+      return fragNext;
+    } else if (fragPrevious && fragmentWithinToleranceTest(fragPrevious.start + fragPrevious.duration, maxFragLookUpTolerance, fragNext) === 0) {
+      return fragNext;
+    }
   }
   return BinarySearch.search(fragments, fragmentWithinToleranceTest.bind(null, bufferEnd, maxFragLookUpTolerance));
 }
@@ -77,7 +86,7 @@ export function fragmentWithinToleranceTest (bufferEnd = 0, maxFragLookUpToleran
   // logger.log(`level/sn/start/end/bufEnd:${level}/${candidate.sn}/${candidate.start}/${(candidate.start+candidate.duration)}/${bufferEnd}`);
   // Set the lookup tolerance to be small enough to detect the current segment - ensures we don't skip over very small segments
   let candidateLookupTolerance = Math.min(maxFragLookUpTolerance, candidate.duration + (candidate.deltaPTS ? candidate.deltaPTS : 0));
-  if (candidate.start + candidate.duration - candidateLookupTolerance <= bufferEnd) {
+  if (candidate.start + candidate.duration - candidateLookupTolerance < bufferEnd) {
     return 1;
   } else if (candidate.start - candidateLookupTolerance > bufferEnd && candidate.start) {
     // if maxFragLookUpTolerance will have negative value then don't return -1 for first element
